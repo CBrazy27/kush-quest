@@ -1,1 +1,154 @@
-<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover'/><title>KUSH QUEST</title></head><body style='background:#1a2418;color:#e8f5a8;font-family:monospace;padding:24px'><p>Loading full game file&hellip;</p><p>If you see this, refresh the preview link.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>KUSH QUEST</title>
+<style>
+html,body{margin:0;height:100%;height:100dvh;background:#1a2418;overflow:hidden;font-family:ui-monospace,Menlo,monospace;touch-action:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:#2d4a28}
+#hud{position:fixed;left:0;right:0;top:0;z-index:5;pointer-events:none;padding:calc(8px + env(safe-area-inset-top)) 8px 0}
+.row{display:flex;justify-content:space-between;gap:6px}
+.panel{background:rgba(10,16,10,.88);border:1px solid #c6e07a;padding:6px 8px;min-width:100px}
+.label{font-size:9px;letter-spacing:.12em;color:#a9c08a}
+.val{font-size:16px;color:#e8f5a8}
+#toast{position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#f3f0a8;z-index:8;text-shadow:0 2px 0 #000;opacity:0;pointer-events:none;font-size:14px;text-align:center;width:90%}
+#pad{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));width:128px;height:128px;border-radius:50%;z-index:7;background:rgba(0,0,0,.32);border:2px solid rgba(255,255,255,.25)}
+#knob{position:absolute;width:52px;height:52px;border-radius:50%;background:#c6e07a;left:38px;top:38px}
+#btns{position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:7}
+.act{width:70px;height:70px;border-radius:50%;border:2px solid #c6e07a;background:rgba(10,16,10,.85);color:#c6e07a;font:800 11px ui-monospace,monospace}
+#modal{display:none;position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center}
+#modal.show{display:flex}
+.sheet{width:min(420px,100%);max-height:72vh;overflow:auto;background:#142014;border-top:2px solid #c6e07a;padding:12px;color:#e8f5a8}
+.sheet h2{margin:0 0 8px;font-size:16px}
+.item{border:1px solid #3a5a34;padding:8px;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.sub{font-size:11px;color:#a9c08a}
+.btn{border:0;background:#c6e07a;color:#132014;font:800 12px ui-monospace,monospace;padding:8px 10px}
+.btn.ghost{background:transparent;border:1px solid #c6e07a;color:#c6e07a}
+#battle{display:none;position:fixed;inset:0;z-index:10;background:#10180f}
+#battle.show{display:block}
+#bui{position:absolute;left:0;right:0;bottom:0;height:38%;background:#142014;border-top:2px solid #c6e07a;padding:8px}
+.moves{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.move{border:1px solid #c6e07a;background:#1b2a18;color:#e8f5a8;font:800 11px ui-monospace,monospace;padding:12px 6px}
+#blog{font-size:12px;min-height:36px;color:#dfe9b8;margin:0 0 6px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><div class="row">
+<div class="panel"><div class="label">CASH</div><div class="val" id="cash">$40</div></div>
+<div class="panel"><div class="label">DEX / FIGHTS</div><div class="val" id="dex">1/12</div></div>
+</div></div>
+<div id="toast"></div>
+<div id="pad"><div id="knob"></div></div>
+<div id="btns"><button class="act" id="btnBag" type="button">BAG</button><button class="act" id="btnUse" type="button">USE</button></div>
+<div id="modal"><div class="sheet" id="sheet"></div></div>
+<div id="battle"><canvas id="bc"></canvas><div id="bui"><div id="blog"></div><div class="moves" id="moves"></div></div></div>
+<script>
+(() => {
+const canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
+const toastEl=document.getElementById("toast");
+const pad=document.getElementById("pad"), knob=document.getElementById("knob");
+const modal=document.getElementById("modal"), sheet=document.getElementById("sheet");
+const battleEl=document.getElementById("battle");
+const bc=document.getElementById("bc"), bctx=bc.getContext("2d");
+const TILE=36, COLS=28, ROWS=18;
+let viewW=390,viewH=700,dpr=1;
+function measure(cv,context){
+  const vv=window.visualViewport;
+  viewW=Math.max(300,Math.round((vv&&vv.width)||innerWidth));
+  viewH=Math.max(500,Math.round((vv&&vv.height)||innerHeight));
+  dpr=Math.min(2,devicePixelRatio||1);
+  const w=Math.floor(viewW*dpr), h=Math.floor(viewH*dpr);
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;context.setTransform(dpr,0,0,dpr,0,0);}
+}
+measure(canvas,ctx);
+window.addEventListener("resize",()=>{measure(canvas,ctx);measure(bc,bctx);});
+if(window.visualViewport) window.visualViewport.addEventListener("resize",()=>{measure(canvas,ctx);measure(bc,bctx);});
+const STRAINS=[
+  {id:"og",n:"OG Kush",t:"Hybrid",pow:78,parents:"Hindu Kush cut"},
+  {id:"sd",n:"Sour Diesel",t:"Sativa",pow:74,parents:"Chemdawg x Super Skunk"},
+  {id:"nl",n:"Northern Lights",t:"Indica",pow:80,parents:"Afghani x Thai"},
+  {id:"bd",n:"Blue Dream",t:"Hybrid",pow:76,parents:"Blueberry x Haze"},
+  {id:"gsc",n:"GSC",t:"Hybrid",pow:82,parents:"OG Kush x Durban Poison"},
+  {id:"gg",n:"Gorilla Glue",t:"Hybrid",pow:84,parents:"Chem Sis x Sour Dubb"},
+  {id:"wc",n:"Wedding Cake",t:"Hybrid",pow:81,parents:"Triangle Kush x Animal Mints"},
+  {id:"dp",n:"Durban Poison",t:"Sativa",pow:73,parents:"Durban landrace"},
+  {id:"gdp",n:"Granddaddy Purple",t:"Indica",pow:79,parents:"Purple Urkle x Big Bud"},
+  {id:"jh",n:"Jack Herer",t:"Sativa",pow:75,parents:"Haze x Northern Lights #5"},
+  {id:"bk",n:"Bubba Kush",t:"Indica",pow:77,parents:"OG Kush cut"},
+  {id:"ww",n:"White Widow",t:"Hybrid",pow:72,parents:"Brazilian x South Indian"}
+];
+const TYPE={Sativa:{Sativa:1,Indica:1.25,Hybrid:0.85},Indica:{Sativa:0.85,Indica:1,Hybrid:1.25},Hybrid:{Sativa:1.25,Indica:0.85,Hybrid:1}};
+const GRASS=0,PATH=1,BUILD=2,FLOOR=3,TREE=4;
+const map=[];
+for(let y=0;y<ROWS;y++){map[y]=[];for(let x=0;x<COLS;x++){
+  let t=GRASS; if(x>=10&&x<=17)t=PATH; if(y===8||y===9)t=PATH;
+  if(x<=2||x>=COLS-3||y<=0||y>=ROWS-1)t=TREE;
+  if((x<9||x>18)&&(x+y*3)%4===0&&y>1&&y<ROWS-2)t=TREE;
+  if(x>=12&&x<=15&&y>=6&&y<=8)t=BUILD; if(x>=12&&x<=15&&y===9)t=FLOOR; map[y][x]=t;
+}}
+function blocked(px,py,r){
+  for(const [x,y] of [[px-r,py-r],[px+r,py-r],[px-r,py+r],[px+r,py+r]]){
+    const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
+    if(ty<0||tx<0||ty>=ROWS||tx>=COLS) return true;
+    const t=map[ty][tx]; if(t===BUILD||t===TREE) return true;
+  } return false;
+}
+const pickups=[];
+for(let i=0;i<10;i++){
+  const west=i%2===0; const x=west?(3+Math.random()*5):(20+Math.random()*4); const y=3+Math.random()*11;
+  const tx=Math.floor(x),ty=Math.floor(y);
+  if(map[ty]&&map[ty][tx]===GRASS) pickups.push({x:x*TILE+18,y:y*TILE+18,s:STRAINS[i%12],gone:false});
+}
+const player={x:13.5*TILE,y:11*TILE,r:10};
+let cash=40,bagLevel=1,nutrients=1,fightsWon=0,toastT=0,mode="walk";
+const bag=[{...STRAINS[0],g:3,fresh:100,stage:1}];
+const dex=new Set(["og"]);
+function toast(t){toastEl.textContent=t;toastEl.style.opacity=1;toastT=1.6;}
+function hud(){document.getElementById("cash").textContent="$"+cash;document.getElementById("dex").textContent=dex.size+"/12 · "+fightsWon;}
+const stick={x:0,y:0,id:null};
+function setStick(cx,cy){const r=pad.getBoundingClientRect(); let mx=cx-(r.left+r.width/2),my=cy-(r.top+r.height/2); const mag=Math.hypot(mx,my)||1,k=Math.min(1,mag/46); stick.x=(mx/mag)*k;stick.y=(my/mag)*k; knob.style.left=38+stick.x*32+"px";knob.style.top=38+stick.y*32+"px";}
+function clearStick(){stick.x=stick.y=0;stick.id=null;knob.style.left="38px";knob.style.top="38px";}
+pad.addEventListener("pointerdown",e=>{e.preventDefault();stick.id=e.pointerId;pad.setPointerCapture(e.pointerId);setStick(e.clientX,e.clientY);});
+pad.addEventListener("pointermove",e=>{if(e.pointerId===stick.id)setStick(e.clientX,e.clientY);});
+pad.addEventListener("pointerup",clearStick);pad.addEventListener("pointercancel",clearStick);
+const keys={}; window.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true); window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+const npcs=[{x:11.2*TILE,y:11.2*TILE,kind:"buy",name:"Marv",col:"#d4a574"},{x:16.4*TILE,y:10.8*TILE,kind:"fight",name:"Dee",col:"#7aa0d4"},{x:13.5*TILE,y:9.6*TILE,kind:"shop",name:"SHOP",col:"#e8c547"}];
+function near(a,b,d){return Math.hypot(a.x-b.x,a.y-b.y)<d;}
+function bestFighter(){return bag.filter(s=>s.g>=0.4&&s.fresh>8).sort((a,b)=>(b.pow*b.fresh*b.stage)-(a.pow*a.fresh*a.stage))[0];}
+function openSheet(html){sheet.innerHTML=html;modal.classList.add("show");}
+function closeSheet(){modal.classList.remove("show");}
+modal.addEventListener("click",e=>{if(e.target===modal)closeSheet();});
+function renderBag(){
+  let html="<h2>BAG</h2><div class='sub'>Sell spends grams you need to fight. Feed uses nutrients.</div>";
+  bag.forEach((s,i)=>{html+=`<div class="item"><div><b>${s.n}</b><div class="sub">${s.t} · ${s.g.toFixed(1)}g · fresh ${Math.round(s.fresh)} · lv${s.stage}<br/>${s.parents}</div></div><div><button class="btn" data-sell="${i}">SELL 1g</button> <button class="btn ghost" data-feed="${i}">FEED</button></div></div>`;});
+  if(bag.length>=2) html+="<button class='btn' id='breed'>COMBINE FIRST TWO</button> ";
+  html+="<button class='btn ghost' id='close'>CLOSE</button>"; openSheet(html);
+  sheet.querySelector("#close").onclick=closeSheet;
+  sheet.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(+b.dataset.sell,22));
+  sheet.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>feed(+b.dataset.feed));
+  const br=sheet.querySelector("#breed"); if(br) br.onclick=breed;
+}
+function sell(i,price){const s=bag[i]; if(!s||s.g<1){toast("Need 1g");return;} s.g-=1;cash+=price; if(s.g<0.3) bag.splice(i,1); toast("Sold 1g +$"+price); hud(); renderBag();}
+function feed(i){if(nutrients<=0){toast("No nutrients");return;} nutrients--; bag[i].stage=Math.min(3,bag[i].stage+1); bag[i].fresh=Math.min(100,bag[i].fresh+20); toast(bag[i].n+" lv"+bag[i].stage); renderBag();}
+function breed(){if(bag.length<2)return; const a=bag[0],b=bag[1]; if(a.g<1||b.g<1){toast("Need 1g each");return;} a.g-=1;b.g-=1; const child={id:a.id+"x"+b.id,n:a.n.split(" ")[0]+" x "+b.n.split(" ")[0],t:a.t===b.t?a.t:"Hybrid",pow:Math.round((a.pow+b.pow)/2)+2,parents:a.n+" x "+b.n,g:1.5,fresh:100,stage:1}; bag.push(child); dex.add(child.id); toast("Bred "+child.n); hud(); renderBag();}
+function openShop(){openSheet(`<h2>CORNER SHOP</h2><div class="item"><div><b>Nutrients</b><div class="sub">Have ${nutrients}</div></div><button class="btn" id="bn">BUY $20</button></div><div class="item"><div><b>Fresh bag lv${bagLevel+1}</b><div class="sub">Slower rot</div></div><button class="btn" id="bb">BUY $50</button></div><button class="btn ghost" id="close">CLOSE</button>`); sheet.querySelector("#close").onclick=closeSheet; sheet.querySelector("#bn").onclick=()=>{if(cash<20){toast("Broke");return;}cash-=20;nutrients++;toast("Nutrients +1");hud();openShop();}; sheet.querySelector("#bb").onclick=()=>{if(cash<50){toast("Broke");return;}cash-=50;bagLevel++;toast("Bag lv"+bagLevel);hud();openShop();};}
+let B=null;
+function startBattle(foeStrain){const mine=bestFighter(); if(!mine){toast("No fightable weed");return;} B={mine,foe:{...foeStrain,hp:100},meHp:100}; battleEl.classList.add("show"); mode="battle"; document.getElementById("blog").textContent="Dee wants to see what you packed."; document.getElementById("moves").innerHTML='<button class="move" data-m="tap">JOINT TAP</button><button class="move" data-m="bong">BONG HIT</button><button class="move" data-m="blunt">SUPER BLUNT</button><button class="move" data-m="bomb">SMOKE BOMB</button>'; document.querySelectorAll(".move").forEach(b=>b.onclick=()=>playerMove(b.dataset.m)); measure(bc,bctx);}
+function dmgOf(move,atk,def){const mult=TYPE[atk.t][def.t]||1; const fresh=Math.max(0.25,atk.fresh/100); const stage=0.75+atk.stage*0.25; const base={tap:10,bong:18,blunt:28,bomb:8}[move]; const cost={tap:0.2,bong:0.4,blunt:0.7,bomb:0.3}[move]; return {dmg:Math.round(base*mult*fresh*stage*(atk.pow/80)),cost,mult};}
+function playerMove(m){if(mode!=="battle")return; if(m==="bomb"){B.mine.g=Math.max(0,B.mine.g-0.3); toast("Smoked out"); endBattle(false,true); return;} const hit=dmgOf(m,B.mine,B.foe); if(B.mine.g<hit.cost){toast("Not enough grams");return;} B.mine.g-=hit.cost; B.mine.fresh=Math.max(0,B.mine.fresh-6); B.foe.hp-=hit.dmg; document.getElementById("blog").textContent=B.mine.n+" "+m+" for "+hit.dmg+(hit.mult>1?" SUPER":hit.mult<1?" WEAK":""); if(B.foe.hp<=0){fightsWon++; endBattle(true,false); return;} setTimeout(enemyMove,450);}
+function enemyMove(){if(mode!=="battle")return; const m=["tap","bong","blunt"][Math.floor(Math.random()*3)]; const hit=dmgOf(m,B.foe,B.mine); B.meHp-=hit.dmg; document.getElementById("blog").textContent=B.foe.n+" "+m+" hits for "+hit.dmg; if(B.meHp<=0) endBattle(false,false);}
+function endBattle(win,ran){mode="walk"; battleEl.classList.remove("show"); if(win){cash+=35;toast("Won +$35");} else if(!ran) toast("Dropped"); if(B.mine.g<0.3){const i=bag.indexOf(B.mine); if(i>=0)bag.splice(i,1);} B=null; hud();}
+function interact(){if(mode!=="walk")return; for(const p of pickups){ if(!p.gone&&near(player,p,22)){ p.gone=true; bag.push({...p.s,g:1.2+Math.random(),fresh:90,stage:1}); dex.add(p.s.id); toast("Picked "+p.s.n); hud(); return; } } for(const n of npcs){ if(near(player,n,28)){ if(n.kind==="shop") openShop(); else if(n.kind==="buy"){ if(!bag.length){toast("Nothing to sell");return;} openSheet("<h2>Marv</h2><p>1g for $22.</p><button class='btn' id='ys'>SELL</button> <button class='btn ghost' id='close'>NAH</button>"); sheet.querySelector("#close").onclick=closeSheet; sheet.querySelector("#ys").onclick=()=>{sell(0,22);closeSheet();}; } else startBattle(STRAINS[3]); return; } } toast("Nothing here");}
+document.getElementById("btnBag").onclick=()=>{if(mode==="walk")renderBag();};
+document.getElementById("btnUse").onclick=interact;
+function update(dt){ if(toastT>0){toastT-=dt; if(toastT<=0)toastEl.style.opacity=0;} if(mode!=="walk")return; let ix=stick.x,iy=stick.y; if(keys.a||keys.arrowleft)ix-=1; if(keys.d||keys.arrowright)ix+=1; if(keys.w||keys.arrowup)iy-=1; if(keys.s||keys.arrowdown)iy+=1; const mag=Math.hypot(ix,iy); if(mag>1){ix/=mag;iy/=mag;} const spd=150; if(!blocked(player.x+ix*spd*dt,player.y,player.r)) player.x+=ix*spd*dt; if(!blocked(player.x,player.y+iy*spd*dt,player.r)) player.y+=iy*spd*dt; bag.forEach(s=>s.fresh=Math.max(0,s.fresh-dt*(0.35/bagLevel))); if(keys[" "]||keys.e){interact(); keys[" "]=keys.e=false;} }
+function drawPerson(x,y,col){ ctx.fillStyle="#e6c2a0"; ctx.beginPath(); ctx.arc(x,y-7,5,0,Math.PI*2); ctx.fill(); ctx.fillStyle=col; ctx.fillRect(x-6,y-2,12,12); ctx.fillStyle="#2a2a32"; ctx.fillRect(x-6,y+8,5,6); ctx.fillRect(x+1,y+8,5,6); }
+function draw(){ measure(canvas,ctx); ctx.fillStyle="#24381f"; ctx.fillRect(0,0,viewW,viewH); const camX=player.x-viewW/2, camY=player.y-viewH/2; for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){ const sx=x*TILE-camX,sy=y*TILE-camY,t=map[y][x]; if(t===GRASS){ctx.fillStyle=(x+y)%2?"#3d6a32":"#35602c"; ctx.fillRect(sx,sy,TILE,TILE);} else if(t===PATH){ctx.fillStyle="#8a7a58"; ctx.fillRect(sx,sy,TILE,TILE);} else if(t===BUILD){ctx.fillStyle="#6a5348"; ctx.fillRect(sx,sy,TILE,TILE); ctx.fillStyle="#e8c547"; ctx.fillRect(sx+10,sy+12,8,8);} else if(t===FLOOR){ctx.fillStyle="#b08958"; ctx.fillRect(sx,sy,TILE,TILE);} else {ctx.fillStyle="#1e3a1c"; ctx.fillRect(sx,sy,TILE,TILE); ctx.fillStyle="#2f5a28"; ctx.beginPath(); ctx.arc(sx+18,sy+16,13,0,Math.PI*2); ctx.fill();} } ctx.fillStyle="#dfe9b8"; ctx.font="11px monospace"; ctx.fillText("WEST WOODS",3*TILE-camX,2.2*TILE-camY); ctx.fillText("TOWN",13*TILE-camX,5.4*TILE-camY); ctx.fillText("EAST WOODS",20*TILE-camX,2.2*TILE-camY); for(const p of pickups){ if(p.gone)continue; ctx.fillStyle="#7dff7a"; ctx.beginPath(); ctx.arc(p.x-camX,p.y-camY,6,0,Math.PI*2); ctx.fill(); } for(const n of npcs){ drawPerson(n.x-camX,n.y-camY,n.col); ctx.fillStyle="#fff"; ctx.font="10px monospace"; ctx.fillText(n.name,n.x-camX-12,n.y-camY-16);} drawPerson(player.x-camX,player.y-camY,"#c6e07a"); if(mode==="battle"&&B){ measure(bc,bctx); bctx.fillStyle="#1a2a16"; bctx.fillRect(0,0,viewW,viewH*0.62); bctx.fillStyle="#c6e07a"; bctx.font="14px monospace"; bctx.fillText(B.mine.n+" HP "+Math.max(0,B.meHp),16,28); bctx.fillText(B.foe.n+" HP "+Math.max(0,Math.round(B.foe.hp)),16,52);} }
+toast("Town mid. Woods L/R. Green dots = strains. USE to pick/shop/fight."); hud();
+let last=performance.now(); function loop(now){const dt=Math.min(0.033,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(loop);} requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
