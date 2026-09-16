@@ -1,154 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>KUSH QUEST</title>
-<style>
-html,body{margin:0;height:100%;height:100dvh;background:#1a2418;overflow:hidden;font-family:ui-monospace,Menlo,monospace;touch-action:none;user-select:none}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:#2d4a28}
-#hud{position:fixed;left:0;right:0;top:0;z-index:5;pointer-events:none;padding:calc(8px + env(safe-area-inset-top)) 8px 0}
-.row{display:flex;justify-content:space-between;gap:6px}
-.panel{background:rgba(10,16,10,.88);border:1px solid #c6e07a;padding:6px 8px;min-width:100px}
-.label{font-size:9px;letter-spacing:.12em;color:#a9c08a}
-.val{font-size:16px;color:#e8f5a8}
-#toast{position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#f3f0a8;z-index:8;text-shadow:0 2px 0 #000;opacity:0;pointer-events:none;font-size:14px;text-align:center;width:90%}
-#pad{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));width:128px;height:128px;border-radius:50%;z-index:7;background:rgba(0,0,0,.32);border:2px solid rgba(255,255,255,.25)}
-#knob{position:absolute;width:52px;height:52px;border-radius:50%;background:#c6e07a;left:38px;top:38px}
-#btns{position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:7}
-.act{width:70px;height:70px;border-radius:50%;border:2px solid #c6e07a;background:rgba(10,16,10,.85);color:#c6e07a;font:800 11px ui-monospace,monospace}
-#modal{display:none;position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center}
-#modal.show{display:flex}
-.sheet{width:min(420px,100%);max-height:72vh;overflow:auto;background:#142014;border-top:2px solid #c6e07a;padding:12px;color:#e8f5a8}
-.sheet h2{margin:0 0 8px;font-size:16px}
-.item{border:1px solid #3a5a34;padding:8px;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
-.sub{font-size:11px;color:#a9c08a}
-.btn{border:0;background:#c6e07a;color:#132014;font:800 12px ui-monospace,monospace;padding:8px 10px}
-.btn.ghost{background:transparent;border:1px solid #c6e07a;color:#c6e07a}
-#battle{display:none;position:fixed;inset:0;z-index:10;background:#10180f}
-#battle.show{display:block}
-#bui{position:absolute;left:0;right:0;bottom:0;height:38%;background:#142014;border-top:2px solid #c6e07a;padding:8px}
-.moves{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.move{border:1px solid #c6e07a;background:#1b2a18;color:#e8f5a8;font:800 11px ui-monospace,monospace;padding:12px 6px}
-#blog{font-size:12px;min-height:36px;color:#dfe9b8;margin:0 0 6px}
-</style>
-</head>
-<body>
-<canvas id="c"></canvas>
-<div id="hud"><div class="row">
-<div class="panel"><div class="label">CASH</div><div class="val" id="cash">$40</div></div>
-<div class="panel"><div class="label">DEX / FIGHTS</div><div class="val" id="dex">1/12</div></div>
-</div></div>
-<div id="toast"></div>
-<div id="pad"><div id="knob"></div></div>
-<div id="btns"><button class="act" id="btnBag" type="button">BAG</button><button class="act" id="btnUse" type="button">USE</button></div>
-<div id="modal"><div class="sheet" id="sheet"></div></div>
-<div id="battle"><canvas id="bc"></canvas><div id="bui"><div id="blog"></div><div class="moves" id="moves"></div></div></div>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/><title>KUSH QUEST</title>
+<style>html,body{margin:0;height:100%;background:#0b1a0c;overflow:hidden;touch-action:none;user-select:none}#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}#c{image-rendering:pixelated;image-rendering:crisp-edges;background:#9bbc0f;max-height:100%}#ui{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:0 8px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}#pad{width:120px;height:120px;border-radius:50%;border:3px solid #306230;background:rgba(15,56,15,.45);pointer-events:auto;position:relative}#knob{position:absolute;width:48px;height:48px;border-radius:50%;background:#8bac0f;left:36px;top:36px}#acts{display:flex;gap:10px;pointer-events:auto}.ab{width:64px;height:64px;border-radius:50%;border:3px solid #0f380f;background:#8bac0f;color:#0f380f;font:800 18px ui-monospace,monospace}</style></head>
+<body><div id="wrap"><canvas id="c" width="160" height="144"></canvas></div>
+<div id="ui"><div id="pad"><div id="knob"></div></div><div id="acts"><button class="ab" id="bB" type="button">B</button><button class="ab" id="bA" type="button">A</button></div></div>
 <script>
 (() => {
-const canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
-const toastEl=document.getElementById("toast");
-const pad=document.getElementById("pad"), knob=document.getElementById("knob");
-const modal=document.getElementById("modal"), sheet=document.getElementById("sheet");
-const battleEl=document.getElementById("battle");
-const bc=document.getElementById("bc"), bctx=bc.getContext("2d");
-const TILE=36, COLS=28, ROWS=18;
-let viewW=390,viewH=700,dpr=1;
-function measure(cv,context){
-  const vv=window.visualViewport;
-  viewW=Math.max(300,Math.round((vv&&vv.width)||innerWidth));
-  viewH=Math.max(500,Math.round((vv&&vv.height)||innerHeight));
-  dpr=Math.min(2,devicePixelRatio||1);
-  const w=Math.floor(viewW*dpr), h=Math.floor(viewH*dpr);
-  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;context.setTransform(dpr,0,0,dpr,0,0);}
-}
-measure(canvas,ctx);
-window.addEventListener("resize",()=>{measure(canvas,ctx);measure(bc,bctx);});
-if(window.visualViewport) window.visualViewport.addEventListener("resize",()=>{measure(canvas,ctx);measure(bc,bctx);});
-const STRAINS=[
-  {id:"og",n:"OG Kush",t:"Hybrid",pow:78,parents:"Hindu Kush cut"},
-  {id:"sd",n:"Sour Diesel",t:"Sativa",pow:74,parents:"Chemdawg x Super Skunk"},
-  {id:"nl",n:"Northern Lights",t:"Indica",pow:80,parents:"Afghani x Thai"},
-  {id:"bd",n:"Blue Dream",t:"Hybrid",pow:76,parents:"Blueberry x Haze"},
-  {id:"gsc",n:"GSC",t:"Hybrid",pow:82,parents:"OG Kush x Durban Poison"},
-  {id:"gg",n:"Gorilla Glue",t:"Hybrid",pow:84,parents:"Chem Sis x Sour Dubb"},
-  {id:"wc",n:"Wedding Cake",t:"Hybrid",pow:81,parents:"Triangle Kush x Animal Mints"},
-  {id:"dp",n:"Durban Poison",t:"Sativa",pow:73,parents:"Durban landrace"},
-  {id:"gdp",n:"Granddaddy Purple",t:"Indica",pow:79,parents:"Purple Urkle x Big Bud"},
-  {id:"jh",n:"Jack Herer",t:"Sativa",pow:75,parents:"Haze x Northern Lights #5"},
-  {id:"bk",n:"Bubba Kush",t:"Indica",pow:77,parents:"OG Kush cut"},
-  {id:"ww",n:"White Widow",t:"Hybrid",pow:72,parents:"Brazilian x South Indian"}
-];
-const TYPE={Sativa:{Sativa:1,Indica:1.25,Hybrid:0.85},Indica:{Sativa:0.85,Indica:1,Hybrid:1.25},Hybrid:{Sativa:1.25,Indica:0.85,Hybrid:1}};
-const GRASS=0,PATH=1,BUILD=2,FLOOR=3,TREE=4;
+const CV=document.getElementById("c"), X=CV.getContext("2d"); X.imageSmoothingEnabled=false;
+const W=160,H=144,T=16;
+const PAL={black:"#0f380f",dark:"#306230",mid:"#8bac0f",lite:"#9bbc0f",white:"#e0f8d0",skin:"#e8c89a",path:"#c4a85a",pathd:"#9a7c3a",wall:"#7a5a3a",roof:"#6b3030",hp:"#d05050",box:"#e8f8d8",ink:"#0f380f",leaf:"#1f6b28",gold:"#d8c030"};
+function fit(){const vv=window.visualViewport;const vw=Math.max(300,(vv&&vv.width)||innerWidth);const vh=Math.max(400,(vv&&vv.height)||innerHeight)-8;const s=Math.floor(Math.min(vw/W,(vh-90)/H));CV.style.width=(W*Math.max(2,s))+"px";CV.style.height=(H*Math.max(2,s))+"px";}
+fit(); addEventListener("resize",fit); if(window.visualViewport) visualViewport.addEventListener("resize",fit);
+const STRAINS=[{id:"og",n:"OG Kush",t:"Hybrid",pow:78},{id:"sd",n:"Sour Diesel",t:"Sativa",pow:74},{id:"nl",n:"N. Lights",t:"Indica",pow:80},{id:"bd",n:"Blue Dream",t:"Hybrid",pow:76},{id:"gsc",n:"GSC",t:"Hybrid",pow:83},{id:"gg",n:"GG4",t:"Hybrid",pow:85},{id:"gel",n:"Gelato",t:"Hybrid",pow:84},{id:"zz",n:"Zaza",t:"Hybrid",pow:88},{id:"dp",n:"Durban",t:"Sativa",pow:73},{id:"gdp",n:"GDP",t:"Indica",pow:79},{id:"jh",n:"Jack Herer",t:"Sativa",pow:75},{id:"ww",n:"White Widow",t:"Hybrid",pow:72}];
+const HITS=[{id:"joint",n:"Joint tap",mul:0.7,cost:0.4},{id:"bowl",n:"Bowl hit",mul:1.0,cost:0.7},{id:"bong",n:"Bong hit",mul:1.35,cost:1.0},{id:"blunt",n:"Blunt hit",mul:1.7,cost:1.4}];
+const SIZES=[{n:"a gram",g:1},{n:"an eighth",g:3.5},{n:"a quarter",g:7},{n:"a half O",g:14},{n:"an O",g:28},{n:"a QP",g:112},{n:"a half pound",g:224},{n:"a pound",g:448}];
+const COLS=24,ROWS=16,GRASS=0,PATH=1,TREE=2,BLD=3;
 const map=[];
-for(let y=0;y<ROWS;y++){map[y]=[];for(let x=0;x<COLS;x++){
-  let t=GRASS; if(x>=10&&x<=17)t=PATH; if(y===8||y===9)t=PATH;
-  if(x<=2||x>=COLS-3||y<=0||y>=ROWS-1)t=TREE;
-  if((x<9||x>18)&&(x+y*3)%4===0&&y>1&&y<ROWS-2)t=TREE;
-  if(x>=12&&x<=15&&y>=6&&y<=8)t=BUILD; if(x>=12&&x<=15&&y===9)t=FLOOR; map[y][x]=t;
-}}
-function blocked(px,py,r){
-  for(const [x,y] of [[px-r,py-r],[px+r,py-r],[px-r,py+r],[px+r,py+r]]){
-    const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
-    if(ty<0||tx<0||ty>=ROWS||tx>=COLS) return true;
-    const t=map[ty][tx]; if(t===BUILD||t===TREE) return true;
-  } return false;
-}
-const pickups=[];
-for(let i=0;i<10;i++){
-  const west=i%2===0; const x=west?(3+Math.random()*5):(20+Math.random()*4); const y=3+Math.random()*11;
-  const tx=Math.floor(x),ty=Math.floor(y);
-  if(map[ty]&&map[ty][tx]===GRASS) pickups.push({x:x*TILE+18,y:y*TILE+18,s:STRAINS[i%12],gone:false});
-}
-const player={x:13.5*TILE,y:11*TILE,r:10};
-let cash=40,bagLevel=1,nutrients=1,fightsWon=0,toastT=0,mode="walk";
-const bag=[{...STRAINS[0],g:3,fresh:100,stage:1}];
-const dex=new Set(["og"]);
-function toast(t){toastEl.textContent=t;toastEl.style.opacity=1;toastT=1.6;}
-function hud(){document.getElementById("cash").textContent="$"+cash;document.getElementById("dex").textContent=dex.size+"/12 · "+fightsWon;}
-const stick={x:0,y:0,id:null};
-function setStick(cx,cy){const r=pad.getBoundingClientRect(); let mx=cx-(r.left+r.width/2),my=cy-(r.top+r.height/2); const mag=Math.hypot(mx,my)||1,k=Math.min(1,mag/46); stick.x=(mx/mag)*k;stick.y=(my/mag)*k; knob.style.left=38+stick.x*32+"px";knob.style.top=38+stick.y*32+"px";}
-function clearStick(){stick.x=stick.y=0;stick.id=null;knob.style.left="38px";knob.style.top="38px";}
+for(let y=0;y<ROWS;y++){map[y]=[];for(let x=0;x<COLS;x++){let t=GRASS;if(x>=8&&x<=15)t=PATH;if(y===8||y===9)t=PATH;if(x<=1||x>=COLS-2||y===0||y===ROWS-1)t=TREE;if((x<8||x>15)&&((x*3+y*5)%5===0)&&y>1&&y<ROWS-2)t=TREE;if(x>=10&&x<=13&&y>=5&&y<=7)t=BLD;map[y][x]=t;}}
+function solid(tx,ty){if(ty<0||tx<0||ty>=ROWS||tx>=COLS)return true;const t=map[ty][tx];return t===TREE||t===BLD;}
+const S={px:12.5,py:10.5,dir:0,walk:0,cash:180,bag:[{...STRAINS[0],g:112,fresh:100}],fade:0,mode:"world",text:[],deal:null,match:null,menu:0,bagLvl:1};
+function grams(){return S.bag.reduce((a,b)=>a+b.g,0);}
+function best(){return S.bag.filter(s=>s.g>=0.4&&s.fresh>5).sort((a,b)=>b.pow*b.fresh-a.pow*a.fresh)[0];}
+function addStrain(st,g){const h=S.bag.find(x=>x.id===st.id);if(h){h.g=+(h.g+g).toFixed(2);h.fresh=Math.max(h.fresh,90);}else S.bag.push({...st,g:+g.toFixed(2),fresh:100});}
+const plants=[];
+for(let i=0;i<8;i++){const west=i<4;const x=west?2+Math.random()*5:17+Math.random()*4;const y=2+Math.random()*12;const tx=x|0,ty=y|0;if(map[ty]&&map[ty][tx]===GRASS)plants.push({x:x+.5,y:y+.5,s:STRAINS[1+(i%11)],gone:false});}
+const npcs=[{x:9.5,y:10.5,kind:"buy",name:"MARV",shirt:"#3068a0"},{x:14.5,y:9.5,kind:"match",name:"DEE",shirt:"#a03050"},{x:11.5,y:9.5,kind:"shop",name:"SHOP",shirt:"#d8c030"}];
+function say(lines,after){S.mode="text";S.text=typeof lines==="string"?[lines]:lines.slice();S.after=after||null;}
+function nextText(){S.text.shift();if(!S.text.length){const fn=S.after;S.after=null;S.mode="world";if(fn)fn();}}
+function startDeal(npc){const want=SIZES[Math.random()<0.45?(Math.random()*5|0):(Math.random()*SIZES.length|0)];const strain=S.bag.filter(s=>s.g>=1).sort((a,b)=>b.g-a.g)[0];if(!strain){say(["MARV: You ain't holding."]);return;}const fair=Math.round(strain.pow*0.55*want.g);S.deal={npc,want,strain,fair,offer:fair,step:"ask"};say([npc.name+": You holding? I need "+want.n+"."],()=>{S.mode="deal";});}
+function quote(price){const d=S.deal;if(!d)return;if(d.strain.g+0.01<d.want.g){say([d.npc.name+": That's "+d.want.n+". You only got "+d.strain.g.toFixed(1)+"g.","Come back when you can fill it."],()=>{S.deal=null;});return;}const max=Math.round(d.fair*1.18);if(price<=d.fair){d.strain.g=+(d.strain.g-d.want.g).toFixed(2);if(d.strain.g<0.3)S.bag=S.bag.filter(s=>s!==d.strain);S.cash+=price;say([d.npc.name+": Bet. Here's $"+price+"."],()=>{S.deal=null;});}else if(price<=max){const counter=Math.round((d.fair+price)/2);d.offer=counter;d.step="counter";say([d.npc.name+": That's high. I'll do $"+counter+"."],()=>{S.mode="deal";});}else say([d.npc.name+": Nah. Too rich."],()=>{S.deal=null;});}
+function startMatch(npc){const mine=best();if(!mine){say([npc.name+": You got nothing to match."]);return;}const foe=STRAINS[3+((Math.random()*8)|0)];say([npc.name+": Wanna match?","Winner's the stronger pack."],()=>{S.match={npc,mine,foe:{...foe,fresh:92},hp:100,ehp:100,turn:"you",log:npc.name+" pulls out "+foe.n+"."};S.mode="match";S.menu=0;});}
+function hitDmg(st,hit){const fresh=Math.max(0.3,st.fresh/100);return Math.max(6,Math.round((st.pow/100)*hit.mul*32*fresh));}
+function doHit(){const M=S.match;if(!M||M.turn!=="you")return;const hit=HITS[S.menu]||HITS[0];if(M.mine.g<hit.cost){M.log="Not enough "+M.mine.n+".";return;}M.mine.g=+(M.mine.g-hit.cost).toFixed(2);M.mine.fresh=Math.max(8,M.mine.fresh-3);const d=hitDmg(M.mine,hit);M.ehp=Math.max(0,M.ehp-d);M.log="You make 'em take a "+M.mine.n+" "+hit.n.toLowerCase()+"! -"+d;if(M.ehp<=0){winMatch();return;}M.turn="them";setTimeout(()=>{if(S.match&&S.match.turn==="them")enemyHit();},500);}
+function enemyHit(){const M=S.match;if(!M)return;const hit=HITS[1+(Math.random()*3)|0];const d=hitDmg(M.foe,hit);M.hp=Math.max(0,M.hp-d);M.log=M.npc.name+" hits you with a "+M.foe.n+" "+hit.n.toLowerCase()+"! -"+d;if(M.hp<=0){loseMatch();return;}M.turn="you";}
+function winMatch(){const prize=40+(S.match.foe.pow|0);S.cash+=prize;say(["They tap out.","You took $"+prize+" off the match."],()=>{S.match=null;S.mode="world";});}
+function loseMatch(){S.cash=0;S.bag.forEach(s=>s.g=+(s.g*0.5).toFixed(2));S.bag=S.bag.filter(s=>s.g>=0.3);S.fade=1;S.px=12.5;S.py=10.5;say(["The pack was too heavy.","You black out...","...wake up in town.","Pockets empty. Stash cut in half."],()=>{S.match=null;S.mode="world";S.fade=0;});}
+function shop(){say(["SHOP: Bags and nutrients."],()=>{S.mode="shop";S.menu=0;});}
+function interact(){if(S.mode==="text"){nextText();return;}for(const p of plants){if(!p.gone&&Math.hypot(S.px-p.x,S.py-p.y)<0.7){p.gone=true;addStrain(p.s,3.5+Math.random()*4);say(["Found a cut of "+p.s.n+"."]);return;}}for(const n of npcs){if(Math.hypot(S.px-n.x,S.py-n.y)<1.05){if(n.kind==="buy")startDeal(n);else if(n.kind==="match")startMatch(n);else shop();return;}}say(["Nothing here."]);}
+const stick={x:0,y:0,id:null};const pad=document.getElementById("pad"),knob=document.getElementById("knob");
+function setStick(cx,cy){const r=pad.getBoundingClientRect();let mx=cx-(r.left+r.width/2),my=cy-(r.top+r.height/2);const mag=Math.hypot(mx,my)||1,k=Math.min(1,mag/42);stick.x=(mx/mag)*k;stick.y=(my/mag)*k;knob.style.left=36+stick.x*28+"px";knob.style.top=36+stick.y*28+"px";}
+function clearStick(){stick.x=stick.y=0;stick.id=null;knob.style.left="36px";knob.style.top="36px";}
 pad.addEventListener("pointerdown",e=>{e.preventDefault();stick.id=e.pointerId;pad.setPointerCapture(e.pointerId);setStick(e.clientX,e.clientY);});
 pad.addEventListener("pointermove",e=>{if(e.pointerId===stick.id)setStick(e.clientX,e.clientY);});
 pad.addEventListener("pointerup",clearStick);pad.addEventListener("pointercancel",clearStick);
-const keys={}; window.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true); window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
-const npcs=[{x:11.2*TILE,y:11.2*TILE,kind:"buy",name:"Marv",col:"#d4a574"},{x:16.4*TILE,y:10.8*TILE,kind:"fight",name:"Dee",col:"#7aa0d4"},{x:13.5*TILE,y:9.6*TILE,kind:"shop",name:"SHOP",col:"#e8c547"}];
-function near(a,b,d){return Math.hypot(a.x-b.x,a.y-b.y)<d;}
-function bestFighter(){return bag.filter(s=>s.g>=0.4&&s.fresh>8).sort((a,b)=>(b.pow*b.fresh*b.stage)-(a.pow*a.fresh*a.stage))[0];}
-function openSheet(html){sheet.innerHTML=html;modal.classList.add("show");}
-function closeSheet(){modal.classList.remove("show");}
-modal.addEventListener("click",e=>{if(e.target===modal)closeSheet();});
-function renderBag(){
-  let html="<h2>BAG</h2><div class='sub'>Sell spends grams you need to fight. Feed uses nutrients.</div>";
-  bag.forEach((s,i)=>{html+=`<div class="item"><div><b>${s.n}</b><div class="sub">${s.t} · ${s.g.toFixed(1)}g · fresh ${Math.round(s.fresh)} · lv${s.stage}<br/>${s.parents}</div></div><div><button class="btn" data-sell="${i}">SELL 1g</button> <button class="btn ghost" data-feed="${i}">FEED</button></div></div>`;});
-  if(bag.length>=2) html+="<button class='btn' id='breed'>COMBINE FIRST TWO</button> ";
-  html+="<button class='btn ghost' id='close'>CLOSE</button>"; openSheet(html);
-  sheet.querySelector("#close").onclick=closeSheet;
-  sheet.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(+b.dataset.sell,22));
-  sheet.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>feed(+b.dataset.feed));
-  const br=sheet.querySelector("#breed"); if(br) br.onclick=breed;
-}
-function sell(i,price){const s=bag[i]; if(!s||s.g<1){toast("Need 1g");return;} s.g-=1;cash+=price; if(s.g<0.3) bag.splice(i,1); toast("Sold 1g +$"+price); hud(); renderBag();}
-function feed(i){if(nutrients<=0){toast("No nutrients");return;} nutrients--; bag[i].stage=Math.min(3,bag[i].stage+1); bag[i].fresh=Math.min(100,bag[i].fresh+20); toast(bag[i].n+" lv"+bag[i].stage); renderBag();}
-function breed(){if(bag.length<2)return; const a=bag[0],b=bag[1]; if(a.g<1||b.g<1){toast("Need 1g each");return;} a.g-=1;b.g-=1; const child={id:a.id+"x"+b.id,n:a.n.split(" ")[0]+" x "+b.n.split(" ")[0],t:a.t===b.t?a.t:"Hybrid",pow:Math.round((a.pow+b.pow)/2)+2,parents:a.n+" x "+b.n,g:1.5,fresh:100,stage:1}; bag.push(child); dex.add(child.id); toast("Bred "+child.n); hud(); renderBag();}
-function openShop(){openSheet(`<h2>CORNER SHOP</h2><div class="item"><div><b>Nutrients</b><div class="sub">Have ${nutrients}</div></div><button class="btn" id="bn">BUY $20</button></div><div class="item"><div><b>Fresh bag lv${bagLevel+1}</b><div class="sub">Slower rot</div></div><button class="btn" id="bb">BUY $50</button></div><button class="btn ghost" id="close">CLOSE</button>`); sheet.querySelector("#close").onclick=closeSheet; sheet.querySelector("#bn").onclick=()=>{if(cash<20){toast("Broke");return;}cash-=20;nutrients++;toast("Nutrients +1");hud();openShop();}; sheet.querySelector("#bb").onclick=()=>{if(cash<50){toast("Broke");return;}cash-=50;bagLevel++;toast("Bag lv"+bagLevel);hud();openShop();};}
-let B=null;
-function startBattle(foeStrain){const mine=bestFighter(); if(!mine){toast("No fightable weed");return;} B={mine,foe:{...foeStrain,hp:100},meHp:100}; battleEl.classList.add("show"); mode="battle"; document.getElementById("blog").textContent="Dee wants to see what you packed."; document.getElementById("moves").innerHTML='<button class="move" data-m="tap">JOINT TAP</button><button class="move" data-m="bong">BONG HIT</button><button class="move" data-m="blunt">SUPER BLUNT</button><button class="move" data-m="bomb">SMOKE BOMB</button>'; document.querySelectorAll(".move").forEach(b=>b.onclick=()=>playerMove(b.dataset.m)); measure(bc,bctx);}
-function dmgOf(move,atk,def){const mult=TYPE[atk.t][def.t]||1; const fresh=Math.max(0.25,atk.fresh/100); const stage=0.75+atk.stage*0.25; const base={tap:10,bong:18,blunt:28,bomb:8}[move]; const cost={tap:0.2,bong:0.4,blunt:0.7,bomb:0.3}[move]; return {dmg:Math.round(base*mult*fresh*stage*(atk.pow/80)),cost,mult};}
-function playerMove(m){if(mode!=="battle")return; if(m==="bomb"){B.mine.g=Math.max(0,B.mine.g-0.3); toast("Smoked out"); endBattle(false,true); return;} const hit=dmgOf(m,B.mine,B.foe); if(B.mine.g<hit.cost){toast("Not enough grams");return;} B.mine.g-=hit.cost; B.mine.fresh=Math.max(0,B.mine.fresh-6); B.foe.hp-=hit.dmg; document.getElementById("blog").textContent=B.mine.n+" "+m+" for "+hit.dmg+(hit.mult>1?" SUPER":hit.mult<1?" WEAK":""); if(B.foe.hp<=0){fightsWon++; endBattle(true,false); return;} setTimeout(enemyMove,450);}
-function enemyMove(){if(mode!=="battle")return; const m=["tap","bong","blunt"][Math.floor(Math.random()*3)]; const hit=dmgOf(m,B.foe,B.mine); B.meHp-=hit.dmg; document.getElementById("blog").textContent=B.foe.n+" "+m+" hits for "+hit.dmg; if(B.meHp<=0) endBattle(false,false);}
-function endBattle(win,ran){mode="walk"; battleEl.classList.remove("show"); if(win){cash+=35;toast("Won +$35");} else if(!ran) toast("Dropped"); if(B.mine.g<0.3){const i=bag.indexOf(B.mine); if(i>=0)bag.splice(i,1);} B=null; hud();}
-function interact(){if(mode!=="walk")return; for(const p of pickups){ if(!p.gone&&near(player,p,22)){ p.gone=true; bag.push({...p.s,g:1.2+Math.random(),fresh:90,stage:1}); dex.add(p.s.id); toast("Picked "+p.s.n); hud(); return; } } for(const n of npcs){ if(near(player,n,28)){ if(n.kind==="shop") openShop(); else if(n.kind==="buy"){ if(!bag.length){toast("Nothing to sell");return;} openSheet("<h2>Marv</h2><p>1g for $22.</p><button class='btn' id='ys'>SELL</button> <button class='btn ghost' id='close'>NAH</button>"); sheet.querySelector("#close").onclick=closeSheet; sheet.querySelector("#ys").onclick=()=>{sell(0,22);closeSheet();}; } else startBattle(STRAINS[3]); return; } } toast("Nothing here");}
-document.getElementById("btnBag").onclick=()=>{if(mode==="walk")renderBag();};
-document.getElementById("btnUse").onclick=interact;
-function update(dt){ if(toastT>0){toastT-=dt; if(toastT<=0)toastEl.style.opacity=0;} if(mode!=="walk")return; let ix=stick.x,iy=stick.y; if(keys.a||keys.arrowleft)ix-=1; if(keys.d||keys.arrowright)ix+=1; if(keys.w||keys.arrowup)iy-=1; if(keys.s||keys.arrowdown)iy+=1; const mag=Math.hypot(ix,iy); if(mag>1){ix/=mag;iy/=mag;} const spd=150; if(!blocked(player.x+ix*spd*dt,player.y,player.r)) player.x+=ix*spd*dt; if(!blocked(player.x,player.y+iy*spd*dt,player.r)) player.y+=iy*spd*dt; bag.forEach(s=>s.fresh=Math.max(0,s.fresh-dt*(0.35/bagLevel))); if(keys[" "]||keys.e){interact(); keys[" "]=keys.e=false;} }
-function drawPerson(x,y,col){ ctx.fillStyle="#e6c2a0"; ctx.beginPath(); ctx.arc(x,y-7,5,0,Math.PI*2); ctx.fill(); ctx.fillStyle=col; ctx.fillRect(x-6,y-2,12,12); ctx.fillStyle="#2a2a32"; ctx.fillRect(x-6,y+8,5,6); ctx.fillRect(x+1,y+8,5,6); }
-function draw(){ measure(canvas,ctx); ctx.fillStyle="#24381f"; ctx.fillRect(0,0,viewW,viewH); const camX=player.x-viewW/2, camY=player.y-viewH/2; for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){ const sx=x*TILE-camX,sy=y*TILE-camY,t=map[y][x]; if(t===GRASS){ctx.fillStyle=(x+y)%2?"#3d6a32":"#35602c"; ctx.fillRect(sx,sy,TILE,TILE);} else if(t===PATH){ctx.fillStyle="#8a7a58"; ctx.fillRect(sx,sy,TILE,TILE);} else if(t===BUILD){ctx.fillStyle="#6a5348"; ctx.fillRect(sx,sy,TILE,TILE); ctx.fillStyle="#e8c547"; ctx.fillRect(sx+10,sy+12,8,8);} else if(t===FLOOR){ctx.fillStyle="#b08958"; ctx.fillRect(sx,sy,TILE,TILE);} else {ctx.fillStyle="#1e3a1c"; ctx.fillRect(sx,sy,TILE,TILE); ctx.fillStyle="#2f5a28"; ctx.beginPath(); ctx.arc(sx+18,sy+16,13,0,Math.PI*2); ctx.fill();} } ctx.fillStyle="#dfe9b8"; ctx.font="11px monospace"; ctx.fillText("WEST WOODS",3*TILE-camX,2.2*TILE-camY); ctx.fillText("TOWN",13*TILE-camX,5.4*TILE-camY); ctx.fillText("EAST WOODS",20*TILE-camX,2.2*TILE-camY); for(const p of pickups){ if(p.gone)continue; ctx.fillStyle="#7dff7a"; ctx.beginPath(); ctx.arc(p.x-camX,p.y-camY,6,0,Math.PI*2); ctx.fill(); } for(const n of npcs){ drawPerson(n.x-camX,n.y-camY,n.col); ctx.fillStyle="#fff"; ctx.font="10px monospace"; ctx.fillText(n.name,n.x-camX-12,n.y-camY-16);} drawPerson(player.x-camX,player.y-camY,"#c6e07a"); if(mode==="battle"&&B){ measure(bc,bctx); bctx.fillStyle="#1a2a16"; bctx.fillRect(0,0,viewW,viewH*0.62); bctx.fillStyle="#c6e07a"; bctx.font="14px monospace"; bctx.fillText(B.mine.n+" HP "+Math.max(0,B.meHp),16,28); bctx.fillText(B.foe.n+" HP "+Math.max(0,Math.round(B.foe.hp)),16,52);} }
-toast("Town mid. Woods L/R. Green dots = strains. USE to pick/shop/fight."); hud();
-let last=performance.now(); function loop(now){const dt=Math.min(0.033,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(loop);} requestAnimationFrame(loop);
+const keys={};addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(e.key==="Enter"||e.key==="z"||e.key===" "){e.preventDefault();pressA();}if(e.key==="Escape"||e.key==="x")pressB();});addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+document.getElementById("bA").onpointerdown=e=>{e.preventDefault();pressA();};
+document.getElementById("bB").onpointerdown=e=>{e.preventDefault();pressB();};
+function pressA(){if(S.mode==="text"){nextText();return;}if(S.mode==="match"){doHit();return;}if(S.mode==="deal"){quote(S.deal.offer);return;}if(S.mode==="shop"){if(S.menu===0){if(S.cash>=80){S.cash-=80;S.bagLvl++;say(["Got an airtight bag."]);}else say(["Not enough cash."]);}else if(S.menu===1){if(S.cash>=25){S.cash-=25;const b=best();if(b){b.fresh=100;b.pow=Math.min(99,b.pow+1);}say(["Fed the top cut."]);}else say(["Not enough cash."]);}else S.mode="world";return;}if(S.mode==="bag"){S.mode="world";return;}interact();}
+function pressB(){if(S.mode==="text"){nextText();return;}if(S.mode==="match"){say(["You back out."],()=>{S.match=null;});return;}if(S.mode==="deal"){if(S.deal&&S.deal.step==="counter"){say(["MARV: I'm out."],()=>{S.deal=null;});return;}S.deal.offer=Math.max(5,Math.round(S.deal.offer*0.85));return;}if(S.mode==="shop"){S.mode="world";return;}if(S.mode==="world")S.mode="bag";else S.mode="world";}
+let acc=0;
+function update(dt){if(S.fade>0)S.fade=Math.max(0,S.fade-dt);if(S.mode!=="world")return;let ix=stick.x,iy=stick.y;if(keys.arrowleft||keys.a)ix-=1;if(keys.arrowright||keys.d)ix+=1;if(keys.arrowup||keys.w)iy-=1;if(keys.arrowdown||keys.s)iy+=1;const m=Math.hypot(ix,iy);if(m>1){ix/=m;iy/=m;}if(m>0.15){S.walk+=dt*8;if(Math.abs(ix)>Math.abs(iy))S.dir=ix<0?2:3;else S.dir=iy<0?1:0;const nx=S.px+ix*3.4*dt,ny=S.py+iy*3.4*dt;if(!solid(nx|0,S.py|0))S.px=nx;if(!solid(S.px|0,ny|0))S.py=ny;}else S.walk=0;S.bag.forEach(s=>s.fresh=Math.max(0,s.fresh-dt*(0.08/S.bagLvl)));}
+function pset(x,y,w,h,c){X.fillStyle=c;X.fillRect(x|0,y|0,w,h);}
+function box(x,y,w,h){pset(x,y,w,h,PAL.ink);pset(x+1,y+1,w-2,h-2,PAL.white);pset(x+2,y+2,w-4,h-4,PAL.box);}
+function print(str,x,y,c){X.fillStyle=c||PAL.ink;X.font="6px monospace";X.fillText(str,x,y);}
+function tree(sx,sy){pset(sx+6,sy+10,4,6,PAL.wall);pset(sx+2,sy+2,12,10,PAL.leaf);pset(sx+4,sy+1,8,3,PAL.dark);}
+function house(sx,sy){pset(sx,sy+6,16,10,PAL.wall);pset(sx+1,sy,14,8,PAL.roof);pset(sx+6,sy+10,4,6,PAL.pathd);}
+function dude(sx,sy,shirt,frame){pset(sx+5,sy+1,6,5,PAL.skin);pset(sx+4,sy+6,8,6,shirt);const leg=frame%2?1:0;pset(sx+4+leg,sy+12,3,4,PAL.ink);pset(sx+9-leg,sy+12,3,4,PAL.ink);}
+function drawWorld(){const camx=Math.max(0,Math.min(COLS*T-W,S.px*T-W/2));const camy=Math.max(0,Math.min(ROWS*T-H,S.py*T-H/2));for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){const sx=x*T-camx,sy=y*T-camy,t=map[y][x];if(t===GRASS){pset(sx,sy,T,T,(x+y)%2?PAL.mid:PAL.lite);pset(sx+3,sy+5,1,1,PAL.dark);}else if(t===PATH){pset(sx,sy,T,T,PAL.path);pset(sx+7,sy,2,T,PAL.pathd);}else if(t===BLD)house(sx,sy);else tree(sx,sy);}print("WEST",2*T-camx,18-camy,PAL.ink);print("TOWN",11*T-camx,4*T-camy,PAL.ink);print("EAST",19*T-camx,18-camy,PAL.ink);for(const p of plants){if(p.gone)continue;const sx=p.x*T-camx-3,sy=p.y*T-camy-3;pset(sx+2,sy+4,2,5,PAL.wall);pset(sx,sy,6,5,PAL.leaf);pset(sx+2,sy-1,2,2,PAL.gold);}for(const n of npcs)dude(n.x*T-camx-8,n.y*T-camy-16,n.shirt,0);dude(S.px*T-camx-8,S.py*T-camy-16,"#e8d020",S.walk|0);box(0,0,160,12);print("$"+S.cash+"  BAG "+grams().toFixed(0)+"g",4,9);}
+function drawText(){box(2,98,156,44);const line=S.text[0]||"";print(line.slice(0,24),8,114);if(line.length>24)print(line.slice(24,48),8,124);print("A >",132,136,PAL.dark);}
+function drawDeal(){const d=S.deal;if(!d)return;box(2,56,156,86);print(d.npc.name+" wants "+d.want.n,8,70);print(d.strain.n+"  "+d.strain.g.toFixed(1)+"g",8,82);print("YOUR PRICE $"+d.offer,8,98);print("A sell   stick = price",8,114);print("B lower / walk",8,126);}
+function drawMatch(){const M=S.match;if(!M)return;pset(0,0,W,H,PAL.lite);pset(0,0,W,54,PAL.dark);print(M.npc.name,8,12,PAL.white);print(M.foe.n,8,22,PAL.white);pset(8,28,80,6,PAL.ink);pset(8,28,Math.max(0,M.ehp*0.8),6,PAL.hp);print("YOU",8,72);print(M.mine.n+" "+M.mine.g.toFixed(1)+"g",8,82);pset(8,88,80,6,PAL.ink);pset(8,88,Math.max(0,M.hp*0.8),6,"#30a030");box(2,100,156,42);print((M.log||"").slice(0,26),8,114);if(M.turn==="you"){print("> "+M.mine.n+" "+HITS[S.menu].n,8,128);print("stick change  A use",8,138,PAL.dark);}}
+function drawBag(){box(8,16,144,112);print("BAG  $"+S.cash,14,30);S.bag.slice(0,6).forEach((s,i)=>print(s.n.slice(0,12)+" "+s.g.toFixed(1)+"g f"+Math.round(s.fresh),14,46+i*12));print("B close",14,120,PAL.dark);}
+function drawShop(){box(8,40,144,80);print(S.menu===0?"> Airtight $80":"  Airtight $80",16,60);print(S.menu===1?"> Nutrients $25":"  Nutrients $25",16,76);print(S.menu===2?"> Leave":"  Leave",16,92);}
+let last=performance.now();
+function loop(now){const dt=Math.min(0.033,(now-last)/1000);last=now;acc+=dt;
+if(S.mode==="match"&&(keys.arrowdown||stick.y>0.45)&&acc>0.18){S.menu=(S.menu+1)%HITS.length;acc=0;}
+if(S.mode==="match"&&(keys.arrowup||stick.y<-0.45)&&acc>0.18){S.menu=(S.menu+3)%HITS.length;acc=0;}
+if(S.mode==="shop"&&(keys.arrowdown||stick.y>0.45)&&acc>0.18){S.menu=(S.menu+1)%3;acc=0;}
+if(S.mode==="deal"&&S.deal){if((keys.arrowup||stick.y<-0.45)&&acc>0.12){S.deal.offer+=5;acc=0;}if((keys.arrowdown||stick.y>0.45)&&acc>0.12){S.deal.offer=Math.max(1,S.deal.offer-5);acc=0;}}
+update(dt);X.fillStyle=PAL.lite;X.fillRect(0,0,W,H);
+if(S.mode==="match")drawMatch();else{drawWorld();if(S.mode==="text")drawText();else if(S.mode==="deal")drawDeal();else if(S.mode==="bag")drawBag();else if(S.mode==="shop")drawShop();}
+if(S.fade>0){X.fillStyle="rgba(0,0,0,"+S.fade+")";X.fillRect(0,0,W,H);}requestAnimationFrame(loop);}
+say(["You roll in with a QP of OG.","Woods west and east.","A talk   B bag"]);
+requestAnimationFrame(loop);
 })();
-</script>
-</body>
-</html>
+</script></body></html>
